@@ -1,0 +1,8 @@
+README.md
+audacity_mcp_server.py
+pyproject.toml
+audacity_mcp.egg-info/PKG-INFO
+audacity_mcp.egg-info/SOURCES.txt
+audacity_mcp.egg-info/dependency_links.txt
+audacity_mcp.egg-info/requires.txt
+audacity_mcp.egg-info/top_level.txt

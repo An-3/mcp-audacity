@@ -1,0 +1,1 @@
+audacity_mcp_server
