@@ -22,6 +22,23 @@ This server communicates with Audacity over named pipes and exposes many Audacit
 ```bash
 git clone https://github.com/An-3/mcp-audacity.git
 cd mcp-audacity
+./scripts/setup.sh
+```
+
+## Quick local test (no MCP host needed)
+
+```bash
+# 1) Start Audacity and enable mod-script-pipe (see section below)
+# 2) Verify local connectivity:
+./scripts/smoke_test.sh
+
+# 3) Start MCP server:
+./scripts/run.sh
+```
+
+If you prefer manual setup instead of scripts:
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -57,8 +74,7 @@ If the files are present, Audacity is ready.
 ## Run the server manually
 
 ```bash
-source .venv/bin/activate
-python audacity_mcp_server.py
+./scripts/run.sh
 ```
 
 Expected startup logs include:

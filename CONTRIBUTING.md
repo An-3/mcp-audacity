@@ -24,7 +24,9 @@ python -m pip install "mcp[cli]>=1.6.0" "httpx>=0.28.1"
 ## Running Locally
 
 ```bash
-python audacity_mcp_server.py
+./scripts/setup.sh
+./scripts/smoke_test.sh
+./scripts/run.sh
 ```
 
 ## Pull Request Guidelines
