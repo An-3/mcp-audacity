@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible problem
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please include enough detail to reproduce.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      placeholder: Short description of the problem
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: audacity
+    attributes:
+      label: Audacity version
+      placeholder: e.g. 3.7.5
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: e.g. Windows 11 / macOS 15 / Ubuntu 24.04
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      render: shell
