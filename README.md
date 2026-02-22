@@ -1,164 +1,110 @@
 # Audacity MCP Server
 
-This project implements an MCP (Model Context Protocol) server that connects to Audacity via its mod‑script‑pipe interface. Using named pipes, the server sends commands to Audacity and receives responses, allowing you to control Audacity (for example, starting/stopping recording or playback) through MCP endpoints. The server can be launched using the `uv` tool and integrated with the Claude Desktop client.
+MCP (Model Context Protocol) server for controlling Audacity through `mod-script-pipe`.
 
-## Table of Contents
-
-1. [Features](#features)
-2. [Requirements](#requirements)
-3. [Installation and Setup](#installation-and-setup)
-4. [Configuring Audacity](#configuring-audacity)
-5. [Usage](#usage)
-6. [Configuration with Claude Desktop Client](#configuration-with-claude-desktop-client)
-7. [Troubleshooting](#troubleshooting)
-8. [License](#license)
+This server communicates with Audacity over named pipes and exposes many Audacity scripting commands as MCP tools.
 
 ## Features
 
-- **Audacity Integration:** Communicates with Audacity using the mod‑script‑pipe interface via named pipes.
-- **MCP Endpoints:** Provides MCP tool endpoints to:
-  - Retrieve Audacity status.
-  - Start and stop recording.
-  - Play and pause playback.
-- **uv Integration:** Uses the `uv` tool to run the MCP server.
-- **Claude Desktop Compatibility:** Can be configured to launch using the Claude Desktop client.
+- Connects to Audacity via `mod-script-pipe`
+- Exposes a broad set of Audacity commands as MCP tools
+- Uses `stdio` transport (works with Codex/Claude/Desktop clients)
+- Auto-detects pipe suffixes in `/tmp` (for example `.501`)
 
 ## Requirements
 
-- **Audacity:** Version 3.x or later is recommended.
-- **Python:** Version 3.13 or newer.
-- **uv Tool:** For running the MCP server.
-- **mod‑script‑pipe:** Audacity’s remote control/scripting interface must be enabled.
-- **Python Dependencies:** The project requires the following packages:
-  - `httpx`
-  - `mcp[cli]`
+- Audacity 3.x+
+- Python 3.10+
+- `mod-script-pipe` enabled in Audacity
 
-## Installation-and-Setup
+## Install
 
-1. **Clone or Download the Project:**
+```bash
+git clone https://github.com/An-3/mcp-audacity.git
+cd mcp-audacity
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install "mcp[cli]>=1.6.0" "httpx>=0.28.1"
+```
 
-   ```
-   git clone <repository-url>
-   cd mcp-audacity
-   ```
+Optional (install as package + CLI entrypoint):
 
-2. **Set Up a Virtual Environment:**
-- **Use the uv tool to create and activate the virtual environment:**
+```bash
+pip install .
+audacity_mcp_server
+```
 
-   ```
-   uv venv --python=python3.13
-   source .venv/bin/activate
-   ```
+## Enable mod-script-pipe in Audacity
 
-3. **Install Dependencies**
-- Install the required dependencies with:
-   ```
-   uv add "mcp[cli]" httpx
-   ```
+1. Open Audacity.
+2. Go to `Audacity -> Settings... -> Modules` (on macOS).
+3. Set `mod-script-pipe` to `Enabled`.
+4. Restart Audacity.
 
-4. **Verify the Project Structure**  
-Make sure your project folder contains at least:
-- `audacity_mcp_pipe.py` (the main MCP server script)
-- `pyproject.toml` (project configuration)
-- (Optional) `claude_desktop_config.json` (for integration with the Claude Desktop client)
+Verify pipes exist:
 
-## Configuring-Audacity
-- For the MCP server to connect with Audacity, its mod‑script‑pipe interface must be enabled.
+```bash
+ls -l /tmp/audacity_script_pipe.to.* /tmp/audacity_script_pipe.from.*
+```
 
-**Step 1: Enable mod‑script‑pipe in Audacity**
-- Open Audacity.
- - Open Preferences:
- - On macOS: Click Audacity > Preferences…
- - On Windows: Click Edit > Preferences…
-- Navigate to the Scripting/Remote Control Section:
-- Look for an option such as Enable mod‑script‑pipe or Enable Remote Control/Scripting.
-- Enable the feature.
-- Restart Audacity.
+If the files are present, Audacity is ready.
 
-**Step 2: Verify Named Pipes**
-- Audacity should create two named pipes (by default on macOS/Linux):
- - Command pipe: `/tmp/audacity_script_pipe.to.%number%`
- - Response pipe: `/tmp/audacity_script_pipe.from.%number%`
-- Run the following command in a terminal to verify:
+## Run the server manually
 
-   ```
-   ls -l /tmp | grep audacity_script_pipe
-   ```
-> If you see extra numbers or characters (e.g. `/tmp/audacity_script_pipe.to.1234`), update the pipe paths in your `audacity_mcp_pipe.py` accordingly.
+```bash
+source .venv/bin/activate
+python audacity_mcp_server.py
+```
 
-## Usage
-- Running the MCP Server from the Command Line
-**1. Navigate to Your Project Directory:**
+Expected startup logs include:
 
-   ```MacOS
-   cd /%path_to_project%/mcp-audacity
-   ```
+- `Audacity MCP server starting up`
+- `Opened Audacity mod-script-pipe`
+- `Connected to Audacity mod-script-pipe`
 
-**2. Activate the Virtual Environment (if not already activated):**
+## Connect from Codex
 
-   ```MacOS
-   source .venv/bin/activate
-   ```
+Add server to Codex MCP config:
 
-**3. Launch the Server with the uv Tool:** 
+```bash
+codex mcp add AudacityMCP -- /absolute/path/to/mcp-audacity/.venv/bin/python /absolute/path/to/mcp-audacity/audacity_mcp_server.py
+```
 
-   ```MacOS
-   uv run audacity_mcp_pipe.py
-   ```
+List configured MCP servers:
 
-- You should see log messages such as:
+```bash
+codex mcp list
+```
 
-   ```MacOS
-   2025-04-13 19:36:32,759 - AudacityMCPServer - INFO - Audacity MCP server starting up
-   2025-04-13 19:36:32,760 - AudacityMCPServer - INFO - Opened Audacity mod-script-pipe
-   2025-04-13 19:36:32,762 - AudacityMCPServer - INFO - Connected to Audacity mod-script-pipe
-   ```
+## Connect from Claude Desktop
 
-## MCP Endpoints
-- Your MCP server exposes several endpoints that can be invoked by an MCP client. For example:
+Example `claude_desktop_config.json`:
 
-- get_status: Retrieves Audacity status.
-- start_recording: Starts recording.
-- stop_recording: Stops recording.
-- play: Starts playback.
-- pause: Pauses playback.  
-
-- These endpoints are defined in `audacity_mcp_pipe.py` and can be triggered using an MCP client.
-
-## Configuration with Claude Desktop Client
-- If you want to run your server via the Claude Desktop client, update your `claude_desktop_config.json` to point to this project. For example:
-
-  ```
-  {
-    "mcpServers": {
-        "audacity": {
-        "command": "/%absolute_path_to_ev%/.local/bin/uv",
-        "args": [
-            "--directory",
-            "/Users/andriiboboshko/mcp-audacity",
-            "run",
-            "audacity_mcp_pipe.py"
-        ]
-        }
+```json
+{
+  "mcpServers": {
+    "audacity": {
+      "command": "/absolute/path/to/mcp-audacity/.venv/bin/python",
+      "args": [
+        "/absolute/path/to/mcp-audacity/audacity_mcp_server.py"
+      ]
     }
   }
-  ```
-  
-- Ensure the paths match your project location and that your virtual environment is set up correctly.
-
-## License
-This project is provided under MIT License. Feel free to modify and distribute as needed.
+}
+```
 
 ## Troubleshooting
 
-**Error: spawn uv ENOENT**
-- I found that it can occur when MCP server tried to launch uv and despite uv was in my PATH it did not create a process. It fixed when I added an absolute path to uv in the Claude Desktop config `claude_desktop_config.json`.
+- `Failed to open Audacity pipes`:
+  - Confirm Audacity is running.
+  - Confirm `mod-script-pipe` is `Enabled`.
+  - Confirm pipe files exist in `/tmp`.
+- `spawn uv ENOENT`:
+  - Use absolute paths in client config, or use the Python command shown above instead of `uv`.
+- Server starts but tools behave inconsistently:
+  - Ensure you are using this latest version, which sends commands in `Command:` form and reads full responses until `BatchCommand finished`.
 
-**ERROR - Failed to connect to Audacity: [Errno 61] Connection refused**
-- I've got this error because Audacity created command and response pipes files in the /tmp folder with some numbers:
+## License
 
-   ```
-   /tmp/audacity_script_pipe.to.501
-   /tmp/audacity_script_pipe.from.501
-   ```
-- After updating the code with the particular number it worked. 
+MIT

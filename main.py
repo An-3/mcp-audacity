@@ -1,5 +1,4 @@
-def main():
-    print("Hello from weather!")
+from audacity_mcp_server import main
 
 
 if __name__ == "__main__":

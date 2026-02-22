@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-audacity_mcp_pipe_full.py
+audacity_mcp_server.py
 
 An extended MCP server that connects to Audacity via the mod-script-pipe interface
 and exposes a comprehensive set of Audacity scripting commands as MCP tool endpoints.
@@ -15,9 +15,7 @@ This file uses named pipes (usually in /tmp on macOS/Linux) to send commands and
 Adjust the PIPE_TO and PIPE_FROM constants below if your setup uses different paths.
 """
 
-import os
-import time
-import json
+import glob
 import logging
 from contextlib import asynccontextmanager
 from typing import Dict, Any, AsyncIterator
@@ -34,6 +32,24 @@ logger = logging.getLogger("AudacityMCPServerExtended")
 # Named pipe paths for mod-script-pipe (update these if needed)
 PIPE_TO = "/tmp/audacity_script_pipe.to.501"
 PIPE_FROM = "/tmp/audacity_script_pipe.from.501"
+
+
+def detect_pipe_paths(default_to: str, default_from: str) -> tuple[str, str]:
+    """
+    Detect active Audacity mod-script-pipe paths under /tmp and fall back to defaults.
+    """
+    to_candidates = glob.glob("/tmp/audacity_script_pipe.to.*")
+    from_candidates = glob.glob("/tmp/audacity_script_pipe.from.*")
+
+    to_by_suffix = {path.rsplit(".", 1)[-1]: path for path in to_candidates}
+    from_by_suffix = {path.rsplit(".", 1)[-1]: path for path in from_candidates}
+    common_suffixes = sorted(set(to_by_suffix) & set(from_by_suffix))
+
+    if common_suffixes:
+        suffix = common_suffixes[-1]
+        return to_by_suffix[suffix], from_by_suffix[suffix]
+
+    return default_to, default_from
 
 class AudacityConnection:
     """
@@ -77,7 +93,7 @@ class AudacityConnection:
     def send_command(self, command: str) -> str:
         """
         Send a command string to Audacity (terminated with a newline) and
-        read a single-line response.
+        read the full response until the batch terminator arrives.
         """
         if not (self.pipe_to and self.pipe_from):
             if not self.connect():
@@ -85,9 +101,22 @@ class AudacityConnection:
         try:
             self.pipe_to.write(command + "\n")
             self.pipe_to.flush()
-            time.sleep(0.2)  # Give Audacity time to process the command.
-            response = self.pipe_from.readline().strip()
-            logger.info(f"Sent command '{command}', received response: {response}")
+            # Read full response to avoid command/result de-sync across calls.
+            response_lines = []
+            while True:
+                line = self.pipe_from.readline()
+                if line == "":
+                    break
+                line = line.rstrip("\n")
+                if line.strip():
+                    response_lines.append(line)
+                if "BatchCommand finished" in line:
+                    break
+
+            response = "\n".join(response_lines).strip()
+            logger.info(
+                f"Sent command '{command}', received {len(response_lines)} response lines"
+            )
             return response
         except Exception as e:
             logger.error(f"Error sending command '{command}': {e}")
@@ -103,7 +132,9 @@ def get_audacity_connection() -> AudacityConnection:
     """
     global _audacity_connection
     if _audacity_connection is None:
-        _audacity_connection = AudacityConnection(PIPE_TO, PIPE_FROM)
+        pipe_to, pipe_from = detect_pipe_paths(PIPE_TO, PIPE_FROM)
+        logger.info(f"Using Audacity pipes: to='{pipe_to}', from='{pipe_from}'")
+        _audacity_connection = AudacityConnection(pipe_to, pipe_from)
         if not _audacity_connection.connect():
             raise Exception("Could not open mod-script-pipe to Audacity. "
                             "Make sure Audacity’s mod-script-pipe is enabled and running.")
@@ -133,7 +164,7 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[Dict[str, Any]]:
 # Create the MCP server.
 mcp = FastMCP(
     "AudacityMCPExtended",
-    description="Extended MCP server to control Audacity via mod-script-pipe with comprehensive commands",
+    instructions="Extended MCP server to control Audacity via mod-script-pipe with comprehensive commands",
     lifespan=server_lifespan
 )
 
@@ -141,7 +172,8 @@ mcp = FastMCP(
 def make_command_function(cmd_id: str, doc: str):
     def command_func(ctx: Context) -> str:
         try:
-            return get_audacity_connection().send_command(cmd_id)
+            # Audacity scripting commands should be sent in "Command:" form.
+            return get_audacity_connection().send_command(f"{cmd_id}:")
         except Exception as e:
             return f"Error executing {cmd_id}: {e}"
     command_func.__doc__ = doc
@@ -389,6 +421,9 @@ no_menu_commands = [
 def add_commands(cmd_list):
     for cmd_id, doc in cmd_list:
         func_name = f"cmd_{cmd_id}"
+        if func_name in globals():
+            logger.debug("Skipping duplicate command registration: %s", cmd_id)
+            continue
         globals()[func_name] = mcp.tool()(make_command_function(cmd_id, doc))
 
 # Add commands by category.

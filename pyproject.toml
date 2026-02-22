@@ -3,11 +3,14 @@ name = "audacity_mcp"
 version = "0.1.0"
 description = "MCP server to control Audacity via socket"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.28.1",
     "mcp[cli]>=1.6.0"
 ]
+
+[project.scripts]
+audacity_mcp_server = "audacity_mcp_server:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]
