@@ -38,9 +38,13 @@ audacity_mcp_server
 ## Enable mod-script-pipe in Audacity
 
 1. Open Audacity.
-2. Go to `Audacity -> Settings... -> Modules` (on macOS).
-3. Set `mod-script-pipe` to `Enabled`.
+2. Open the **Modules** preferences page:
+   - **Windows/Linux**: `Edit -> Preferences -> Modules`
+   - **macOS**: `Audacity -> Settings... -> Modules` (or `Audacity -> Preferences -> Modules` depending on build)
+3. Set `mod-script-pipe` from `New` (or `Disabled`) to `Enabled`.
 4. Restart Audacity.
+
+Note: In current Audacity versions, this is configured in **Modules**, not in a separate "Scripting/Remote Control" section.
 
 Verify pipes exist:
 
